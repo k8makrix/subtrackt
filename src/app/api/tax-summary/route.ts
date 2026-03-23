@@ -18,7 +18,7 @@ export async function GET(request: Request) {
                WHEN cost IS NOT NULL AND billing_cycle = '6-month' THEN cost * 2
                ELSE 0 END) as annual_total
     FROM subscriptions
-    WHERE status IN ('active', 'lenny-pass')
+    WHERE user_id = ${session.user.id} AND status IN ('active', 'lenny-pass')
     GROUP BY tax_category, expense_type
     ORDER BY annual_total DESC
   `;
@@ -31,7 +31,8 @@ export async function GET(request: Request) {
            WHEN billing_cycle = '6-month' THEN cost * 2
            ELSE 0 END as annualized_cost
     FROM subscriptions
-    WHERE expense_type != 'personal'
+    WHERE user_id = ${session.user.id}
+      AND expense_type != 'personal'
       AND status IN ('active', 'lenny-pass')
     ORDER BY annualized_cost DESC NULLS LAST
   `;

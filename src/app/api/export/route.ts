@@ -19,6 +19,7 @@ export async function GET(request: Request) {
            WHEN billing_cycle = '6-month' THEN cost * 2
            ELSE 0 END as annualized_cost
     FROM subscriptions
+    WHERE user_id = ${session.user.id}
     ORDER BY expense_type, tax_category, annualized_cost DESC NULLS LAST
   `;
 

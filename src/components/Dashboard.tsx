@@ -6,6 +6,7 @@ import { authClient } from "@/lib/auth-client";
 import { AuthButton } from "./AuthButton";
 import { SubscriptionRow } from "./SubscriptionRow";
 import { AddSubscriptionModal } from "./AddSubscriptionModal";
+import { NotificationSettings } from "./NotificationSettings";
 import type { Subscription } from "@/lib/types";
 
 type Tab = "dashboard" | "all" | "tax";
@@ -54,6 +55,7 @@ export function Dashboard({
   const [activeTab, setActiveTab] = useState<Tab>("dashboard");
   const [search, setSearch] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showNotificationSettings, setShowNotificationSettings] = useState(false);
 
   const activeSubs = subscriptions.filter((s) => s.status === "active");
   const lennyPassSubs = subscriptions.filter((s) => s.status === "lenny-pass");
@@ -133,7 +135,19 @@ export function Dashboard({
               Know what you pay for. Cancel what you don&apos;t need.
             </p>
           </div>
-          <AuthButton />
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowNotificationSettings(true)}
+              className="text-gray-500 hover:text-amber-400 transition-colors p-1.5"
+              title="Notification settings"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+              </svg>
+            </button>
+            <AuthButton />
+          </div>
         </div>
 
         {/* Tabs */}
@@ -421,6 +435,9 @@ export function Dashboard({
             router.refresh();
           }}
         />
+      )}
+      {showNotificationSettings && (
+        <NotificationSettings onClose={() => setShowNotificationSettings(false)} />
       )}
     </main>
   );

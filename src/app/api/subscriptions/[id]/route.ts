@@ -40,7 +40,7 @@ export async function PATCH(
       expense_type = COALESCE(${values.expense_type ?? null}, expense_type),
       tax_deductible = COALESCE(${values.tax_deductible ?? null}, tax_deductible),
       updated_at = NOW()
-    WHERE id = ${id}
+    WHERE id = ${id} AND user_id = ${session.user.id}
     RETURNING *
   `;
 

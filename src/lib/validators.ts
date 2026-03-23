@@ -65,6 +65,20 @@ export const createNoteSchema = z.object({
 
 export const idParamSchema = z.string().regex(/^\d+$/, "Invalid ID");
 
+export const notificationPreferencesSchema = z.object({
+  alert_7_days: z.boolean().optional(),
+  alert_3_days: z.boolean().optional(),
+  alert_day_of: z.boolean().optional(),
+  weekly_digest: z.boolean().optional(),
+  digest_day: z
+    .enum(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"])
+    .optional(),
+  email_enabled: z.boolean().optional(),
+  slack_enabled: z.boolean().optional(),
+  slack_webhook_url: z.string().url().nullable().optional(),
+});
+
 export type CreateSubscriptionInput = z.infer<typeof createSubscriptionSchema>;
 export type UpdateSubscriptionInput = z.input<typeof updateSubscriptionSchema>;
 export type CreateNoteInput = z.infer<typeof createNoteSchema>;
+export type NotificationPreferencesInput = z.infer<typeof notificationPreferencesSchema>;

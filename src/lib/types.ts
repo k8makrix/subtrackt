@@ -1,5 +1,6 @@
 export type Subscription = {
   id: number;
+  user_id: string;
   service_name: string;
   cost: string | null;
   billing_cycle: string | null;
