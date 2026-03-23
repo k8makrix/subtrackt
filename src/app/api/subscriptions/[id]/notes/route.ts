@@ -1,11 +1,21 @@
 import { getDb } from "@/lib/db";
 import { NextResponse } from "next/server";
+import { requireAuth, unauthorizedResponse, validateOrigin, forbiddenResponse } from "@/lib/auth-guard";
+import { createNoteSchema, idParamSchema } from "@/lib/validators";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const session = await requireAuth(request);
+  if (!session) return unauthorizedResponse();
+
   const { id } = await params;
+  const idCheck = idParamSchema.safeParse(id);
+  if (!idCheck.success) {
+    return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
+  }
+
   const sql = getDb();
 
   const notes = await sql`
@@ -21,13 +31,30 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
-  const sql = getDb();
-  const body = await request.json();
+  const session = await requireAuth(request);
+  if (!session) return unauthorizedResponse();
+  if (!validateOrigin(request)) return forbiddenResponse();
 
+  const { id } = await params;
+  const idCheck = idParamSchema.safeParse(id);
+  if (!idCheck.success) {
+    return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
+  }
+
+  const sql = getDb();
+  const raw = await request.json();
+  const parsed = createNoteSchema.safeParse(raw);
+
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  }
+
+  const body = parsed.data;
+
+  // Use session user info instead of trusting client input
   const result = await sql`
     INSERT INTO subscription_notes (subscription_id, user_email, user_name, note, note_type)
-    VALUES (${id}, ${body.user_email}, ${body.user_name}, ${body.note}, ${body.note_type || "comment"})
+    VALUES (${id}, ${session.user.email}, ${session.user.name}, ${body.note}, ${body.note_type || "comment"})
     RETURNING *
   `;
 

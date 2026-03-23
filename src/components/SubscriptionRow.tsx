@@ -1,22 +1,7 @@
 "use client";
 
 import { useState } from "react";
-
-type Subscription = {
-  id: number;
-  service_name: string;
-  cost: string | null;
-  billing_cycle: string | null;
-  category: string | null;
-  next_renewal_date: string | null;
-  tax_deductible: string | null;
-  keep_cancel_review: string | null;
-  payment_source: string | null;
-  covered_by: string | null;
-  status: string | null;
-  tax_category: string | null;
-  expense_type: string | null;
-};
+import type { Subscription } from "@/lib/types";
 
 type Note = {
   id: number;

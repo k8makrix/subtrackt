@@ -1,29 +1,12 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { AuthButton } from "./AuthButton";
 import { SubscriptionRow } from "./SubscriptionRow";
-
-type Subscription = {
-  id: number;
-  service_name: string;
-  cost: string | null;
-  billing_cycle: string | null;
-  email_account: string | null;
-  next_renewal_date: string | null;
-  category: string | null;
-  source: string | null;
-  tax_deductible: string | null;
-  plan_name: string | null;
-  keep_cancel_review: string | null;
-  payment_source: string | null;
-  covered_by: string | null;
-  status: string | null;
-  parent_subscription_id: number | null;
-  tax_category: string | null;
-  expense_type: string | null;
-};
+import { AddSubscriptionModal } from "./AddSubscriptionModal";
+import type { Subscription } from "@/lib/types";
 
 type Tab = "dashboard" | "all" | "tax";
 
@@ -66,9 +49,11 @@ export function Dashboard({
 }: {
   subscriptions: Subscription[];
 }) {
+  const router = useRouter();
   const { data: session } = authClient.useSession();
   const [activeTab, setActiveTab] = useState<Tab>("dashboard");
   const [search, setSearch] = useState("");
+  const [showAddModal, setShowAddModal] = useState(false);
 
   const activeSubs = subscriptions.filter((s) => s.status === "active");
   const lennyPassSubs = subscriptions.filter((s) => s.status === "lenny-pass");
@@ -280,8 +265,8 @@ export function Dashboard({
         {/* ===== ALL SUBSCRIPTIONS TAB ===== */}
         {activeTab === "all" && (
           <div className="mb-8">
-            {/* Search */}
-            <div className="mb-4">
+            {/* Search + Add */}
+            <div className="mb-4 flex items-center gap-3">
               <input
                 type="text"
                 value={search}
@@ -289,6 +274,12 @@ export function Dashboard({
                 placeholder="Search subscriptions..."
                 className="bg-gray-900 text-sm rounded-lg px-4 py-2.5 w-full max-w-md border border-gray-800 focus:border-amber-500/50 focus:outline-none transition-colors"
               />
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="px-4 py-2.5 text-sm rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-medium transition-colors whitespace-nowrap"
+              >
+                + Add
+              </button>
             </div>
 
             {/* Table */}
@@ -422,6 +413,15 @@ export function Dashboard({
           subtrackt -- built by Kate Makrigiannis with Claude Code + Neon
         </div>
       </div>
+      {showAddModal && (
+        <AddSubscriptionModal
+          onClose={() => setShowAddModal(false)}
+          onSuccess={() => {
+            setShowAddModal(false);
+            router.refresh();
+          }}
+        />
+      )}
     </main>
   );
 }

@@ -1,39 +1,31 @@
 import { getDb } from "@/lib/db";
 import { NextResponse } from "next/server";
+import { requireAuth, unauthorizedResponse, validateOrigin, forbiddenResponse } from "@/lib/auth-guard";
+import { updateSubscriptionSchema, idParamSchema } from "@/lib/validators";
 
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const session = await requireAuth(request);
+  if (!session) return unauthorizedResponse();
+  if (!validateOrigin(request)) return forbiddenResponse();
+
   const { id } = await params;
+  const idCheck = idParamSchema.safeParse(id);
+  if (!idCheck.success) {
+    return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
+  }
+
   const sql = getDb();
-  const body = await request.json();
+  const raw = await request.json();
+  const parsed = updateSubscriptionSchema.safeParse(raw);
 
-  const values: Record<string, unknown> = {};
-
-  const allowedFields = [
-    "keep_cancel_review",
-    "payment_source",
-    "covered_by",
-    "cost",
-    "status",
-    "next_renewal_date",
-    "plan_details",
-    "cancel_notes",
-    "tax_category",
-    "expense_type",
-    "tax_deductible",
-  ];
-
-  for (const field of allowedFields) {
-    if (body[field] !== undefined) {
-      values[field] = body[field];
-    }
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  if (Object.keys(values).length === 0) {
-    return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
-  }
+  const values = parsed.data;
 
   const result = await sql`
     UPDATE subscriptions

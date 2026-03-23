@@ -1,0 +1,27 @@
+export type Subscription = {
+  id: number;
+  service_name: string;
+  cost: string | null;
+  billing_cycle: string | null;
+  email_account: string | null;
+  next_renewal_date: string | null;
+  category: string | null;
+  source: string | null;
+  tax_deductible: string | null;
+  plan_name: string | null;
+  plan_details: string | null;
+  cancel_url: string | null;
+  cancel_notes: string | null;
+  keep_cancel_review: string | null;
+  payment_source: string | null;
+  covered_by: string | null;
+  status: string | null;
+  parent_subscription_id: number | null;
+  parent_name: string | null;
+  tax_category: string | null;
+  expense_type: string | null;
+  auto_renew: boolean | null;
+  signup_date: string | null;
+  last_charge_date: string | null;
+  updated_at: string | null;
+};

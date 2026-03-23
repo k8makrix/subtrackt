@@ -1,7 +1,11 @@
 import { getDb } from "@/lib/db";
 import { NextResponse } from "next/server";
+import { requireAuth, unauthorizedResponse } from "@/lib/auth-guard";
 
-export async function GET() {
+export async function GET(request: Request) {
+  const session = await requireAuth(request);
+  if (!session) return unauthorizedResponse();
+
   const sql = getDb();
 
   const subs = await sql`
