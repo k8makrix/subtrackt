@@ -59,6 +59,8 @@ export function Dashboard({
 
   const activeSubs = subscriptions.filter((s) => s.status === "active");
   const lennyPassSubs = subscriptions.filter((s) => s.status === "lenny-pass");
+  const canceledSubs = subscriptions.filter((s) => s.status === "canceled");
+  const [showCancelled, setShowCancelled] = useState(false);
 
   const totalAnnualized = useMemo(() => {
     return [...activeSubs, ...lennyPassSubs].reduce(
@@ -66,6 +68,13 @@ export function Dashboard({
       0
     );
   }, [activeSubs, lennyPassSubs]);
+
+  const moneySaved = useMemo(() => {
+    return canceledSubs.reduce(
+      (sum, s) => sum + annualize(s.cost, s.billing_cycle),
+      0
+    );
+  }, [canceledSubs]);
 
   const monthlySpend = activeSubs
     .filter((s) => s.billing_cycle === "monthly" && s.cost)
@@ -171,8 +180,8 @@ export function Dashboard({
         {activeTab === "dashboard" && (
           <>
             {/* Hero Metric + Summary */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-              <div className="bg-gray-900 rounded-xl p-6 border border-gray-800 md:row-span-1">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+              <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
                 <div className="text-sm text-gray-400">Total Annualized</div>
                 <div className="text-4xl font-bold text-amber-400 mt-2">
                   ${totalAnnualized.toFixed(2)}
@@ -180,6 +189,15 @@ export function Dashboard({
                 <div className="text-xs text-gray-500 mt-2 flex gap-4">
                   <span>${monthlySpend.toFixed(0)}/mo</span>
                   <span>${annualSpend.toFixed(0)}/yr</span>
+                </div>
+              </div>
+              <div className="bg-gray-900 rounded-xl p-6 border border-green-900/50">
+                <div className="text-sm text-gray-400">Money Saved</div>
+                <div className="text-4xl font-bold text-green-400 mt-2">
+                  ${moneySaved.toFixed(2)}
+                </div>
+                <div className="text-xs text-gray-500 mt-2">
+                  {canceledSubs.length} cancelled subscription{canceledSubs.length !== 1 ? "s" : ""}
                 </div>
               </div>
               <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
@@ -315,6 +333,7 @@ export function Dashboard({
                       sub={s}
                       userEmail={session?.user?.email || null}
                       userName={session?.user?.name || null}
+                      onUpdate={() => router.refresh()}
                     />
                   ))}
                   {filteredSubs.length === 0 && (
@@ -327,6 +346,52 @@ export function Dashboard({
                 </tbody>
               </table>
             </div>
+
+            {/* Cancelled Subscriptions */}
+            {canceledSubs.length > 0 && (
+              <div className="mt-6">
+                <button
+                  onClick={() => setShowCancelled(!showCancelled)}
+                  className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-300 transition-colors mb-3"
+                >
+                  <svg
+                    className={`w-3 h-3 transition-transform ${showCancelled ? "rotate-90" : ""}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                  Cancelled ({canceledSubs.length}) -- ${moneySaved.toFixed(2)}/yr saved
+                </button>
+                {showCancelled && (
+                  <div className="bg-gray-900/50 rounded-xl border border-gray-800/50 overflow-hidden opacity-70">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-gray-800 text-gray-400">
+                          <th className="w-8 px-3 py-3"></th>
+                          <th className="text-left px-4 py-3">Service</th>
+                          <th className="text-left px-4 py-3">Cost</th>
+                          <th className="text-left px-4 py-3">Cancelled</th>
+                          <th className="text-left px-4 py-3">Decision</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {canceledSubs.map((s) => (
+                          <SubscriptionRow
+                            key={s.id}
+                            sub={s}
+                            userEmail={session?.user?.email || null}
+                            userName={session?.user?.name || null}
+                            onUpdate={() => router.refresh()}
+                          />
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 

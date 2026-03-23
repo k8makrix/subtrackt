@@ -39,6 +39,10 @@ export async function PATCH(
       tax_category = COALESCE(${values.tax_category ?? null}, tax_category),
       expense_type = COALESCE(${values.expense_type ?? null}, expense_type),
       tax_deductible = COALESCE(${values.tax_deductible ?? null}, tax_deductible),
+      canceled_at = CASE
+        WHEN ${values.canceled_at === undefined} THEN canceled_at
+        ELSE ${values.canceled_at ?? null}::timestamptz
+      END,
       updated_at = NOW()
     WHERE id = ${id} AND user_id = ${session.user.id}
     RETURNING *

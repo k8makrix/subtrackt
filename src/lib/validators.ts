@@ -53,6 +53,7 @@ export const updateSubscriptionSchema = z
       .nullable()
       .optional(),
     tax_deductible: z.string().nullable().optional(),
+    canceled_at: z.string().nullable().optional(),
   })
   .refine((data) => Object.keys(data).length > 0, {
     message: "At least one field must be provided",

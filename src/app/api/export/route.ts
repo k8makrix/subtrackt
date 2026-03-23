@@ -13,7 +13,7 @@ export async function GET(request: Request) {
       service_name, cost, billing_cycle, email_account,
       next_renewal_date, category, tax_category, expense_type,
       tax_deductible, payment_source, covered_by,
-      keep_cancel_review, status, plan_name,
+      keep_cancel_review, status, canceled_at, plan_name,
       CASE WHEN billing_cycle = 'monthly' THEN cost * 12
            WHEN billing_cycle = 'annual' THEN cost
            WHEN billing_cycle = '6-month' THEN cost * 2
@@ -26,15 +26,15 @@ export async function GET(request: Request) {
   const headers = [
     "Service", "Monthly Cost", "Billing Cycle", "Email", "Next Renewal",
     "Category", "Tax Category", "Expense Type", "Tax Deductible",
-    "Payment Source", "Covered By", "Decision", "Status", "Plan",
-    "Annualized Cost"
+    "Payment Source", "Covered By", "Decision", "Status", "Canceled At",
+    "Plan", "Annualized Cost"
   ];
 
   const rows = subs.map((s: Record<string, unknown>) => [
     s.service_name, s.cost || "", s.billing_cycle, s.email_account,
     s.next_renewal_date || "", s.category, s.tax_category, s.expense_type,
     s.tax_deductible, s.payment_source, s.covered_by || "",
-    s.keep_cancel_review, s.status, s.plan_name || "",
+    s.keep_cancel_review, s.status, s.canceled_at || "", s.plan_name || "",
     s.annualized_cost || ""
   ]);
 

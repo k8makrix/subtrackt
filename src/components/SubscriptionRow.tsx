@@ -41,10 +41,12 @@ export function SubscriptionRow({
   sub,
   userEmail,
   userName,
+  onUpdate,
 }: {
   sub: Subscription;
   userEmail: string | null;
   userName: string | null;
+  onUpdate?: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [notes, setNotes] = useState<Note[]>([]);
@@ -80,6 +82,18 @@ export function SubscriptionRow({
     setTimeout(() => setSaveState("idle"), 1500);
   }
 
+  async function updateFields(fields: Record<string, string | null>) {
+    setSaveState("saving");
+    await fetch(`/api/subscriptions/${sub.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(fields),
+    });
+    setSaveState("saved");
+    setTimeout(() => setSaveState("idle"), 1500);
+    onUpdate?.();
+  }
+
   async function addNote() {
     if (!newNote.trim() || !userEmail) return;
     await fetch(`/api/subscriptions/${sub.id}/notes`, {
@@ -113,7 +127,7 @@ export function SubscriptionRow({
           </svg>
         </td>
         <td className="px-4 py-3">
-          <div className="font-medium">{sub.service_name}</div>
+          <div className={`font-medium ${sub.status === "canceled" ? "line-through text-gray-500" : ""}`}>{sub.service_name}</div>
           {sub.category && (
             <div className="text-xs text-gray-500">{sub.category}</div>
           )}
@@ -166,8 +180,23 @@ export function SubscriptionRow({
                 <select
                   value={decision || "review"}
                   onChange={(e) => {
-                    setDecision(e.target.value);
-                    updateField("keep_cancel_review", e.target.value);
+                    const newDecision = e.target.value;
+                    setDecision(newDecision);
+                    if (newDecision === "cancel") {
+                      updateFields({
+                        keep_cancel_review: "cancel",
+                        status: "canceled",
+                        canceled_at: new Date().toISOString(),
+                      });
+                    } else if (decision === "cancel") {
+                      updateFields({
+                        keep_cancel_review: newDecision,
+                        status: "active",
+                        canceled_at: null,
+                      });
+                    } else {
+                      updateField("keep_cancel_review", newDecision);
+                    }
                   }}
                   onClick={(e) => e.stopPropagation()}
                   className="bg-gray-800 text-sm rounded px-3 py-1.5 w-full border border-gray-700"
