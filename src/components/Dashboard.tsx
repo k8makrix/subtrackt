@@ -56,6 +56,7 @@ export function Dashboard({
   const [search, setSearch] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [showNotificationSettings, setShowNotificationSettings] = useState(false);
+  const [taxYear, setTaxYear] = useState<string>(new Date().getFullYear().toString());
 
   const activeSubs = subscriptions.filter((s) => s.status === "active");
   const lennyPassSubs = subscriptions.filter((s) => s.status === "lenny-pass");
@@ -134,6 +135,46 @@ export function Dashboard({
       .filter((s) => !s.expense_type || s.expense_type === "personal")
       .reduce((sum, s) => sum + annualize(s.cost, s.billing_cycle), 0);
   }, [subscriptions]);
+
+  const availableYears = useMemo(() => {
+    const years = new Set<number>();
+    years.add(new Date().getFullYear());
+    subscriptions.forEach((s) => {
+      if (s.signup_date) years.add(new Date(s.signup_date).getFullYear());
+      if (s.canceled_at) years.add(new Date(s.canceled_at).getFullYear());
+    });
+    return Array.from(years).sort((a, b) => b - a);
+  }, [subscriptions]);
+
+  const taxFilteredSubs = useMemo(() => {
+    if (taxYear === "all") return subscriptions;
+    const y = parseInt(taxYear);
+    const yearStart = new Date(`${y}-01-01`);
+    const yearEnd = new Date(`${y}-12-31`);
+    return subscriptions.filter((s) => {
+      const signup = s.signup_date ? new Date(s.signup_date) : null;
+      const canceled = s.canceled_at ? new Date(s.canceled_at) : null;
+      if (signup && signup > yearEnd) return false;
+      if (canceled && canceled < yearStart) return false;
+      return s.status === "active" || s.status === "canceled";
+    });
+  }, [subscriptions, taxYear]);
+
+  const taxBizDeductible = useMemo(() => {
+    return taxFilteredSubs
+      .filter((s) => s.expense_type && s.expense_type !== "personal" && s.tax_category !== "none")
+      .reduce((sum, s) => sum + annualize(s.cost, s.billing_cycle), 0);
+  }, [taxFilteredSubs]);
+
+  const taxPersonalSpend = useMemo(() => {
+    return taxFilteredSubs
+      .filter((s) => !s.expense_type || s.expense_type === "personal")
+      .reduce((sum, s) => sum + annualize(s.cost, s.billing_cycle), 0);
+  }, [taxFilteredSubs]);
+
+  const taxCostsTBD = useMemo(() => {
+    return taxFilteredSubs.filter((s) => !s.cost && s.status === "active");
+  }, [taxFilteredSubs]);
 
   const tabs: { key: Tab; label: string }[] = [
     { key: "dashboard", label: "Dashboard" },
@@ -435,19 +476,40 @@ export function Dashboard({
         {activeTab === "tax" && (
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-semibold">Tax & Expense Summary</h2>
-              <a
-                href="/api/export"
-                className="text-sm bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded-lg border border-gray-700 transition"
-              >
-                Export CSV for Tax
-              </a>
+              <div className="flex items-center gap-3">
+                <h2 className="text-base font-semibold">Tax & Expense Summary</h2>
+                <select
+                  value={taxYear}
+                  onChange={(e) => setTaxYear(e.target.value)}
+                  className="bg-gray-800 text-gray-300 border border-gray-700 rounded-lg px-3 py-1.5 text-sm focus:border-amber-500/50 focus:outline-none"
+                >
+                  {availableYears.map((y) => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                  <option value="all">All Time</option>
+                </select>
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={`/api/export?year=${taxYear}`}
+                  className="text-sm bg-gray-800 hover:bg-gray-700 px-3 py-1.5 rounded-lg border border-gray-700 transition-colors text-gray-300"
+                >
+                  Export CSV
+                </a>
+                <a
+                  href={`/api/export/tax-pdf?year=${taxYear}`}
+                  className="flex items-center gap-1.5 text-sm bg-gray-800 hover:bg-gray-700 px-3 py-1.5 rounded-lg border border-gray-700 transition-colors text-gray-300"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                  Export PDF
+                </a>
+              </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
                 <div className="text-sm text-gray-400">Business Deductible</div>
                 <div className="text-2xl font-bold text-green-400 mt-1">
-                  ${bizDeductible.toFixed(2)}
+                  ${taxBizDeductible.toFixed(2)}
                 </div>
                 <div className="text-xs text-gray-500 mt-1">
                   annualized deductible expenses
@@ -458,7 +520,7 @@ export function Dashboard({
                   Personal (Non-deductible)
                 </div>
                 <div className="text-2xl font-bold mt-1">
-                  ${personalSpend.toFixed(2)}
+                  ${taxPersonalSpend.toFixed(2)}
                 </div>
                 <div className="text-xs text-gray-500 mt-1">
                   annualized personal expenses
@@ -467,7 +529,7 @@ export function Dashboard({
               <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
                 <div className="text-sm text-gray-400">Costs Still TBD</div>
                 <div className="text-2xl font-bold text-amber-400 mt-1">
-                  {costsTBD.length}
+                  {taxCostsTBD.length}
                 </div>
                 <div className="text-xs text-gray-500 mt-1">
                   subscriptions need cost lookup
@@ -488,7 +550,7 @@ export function Dashboard({
                   </tr>
                 </thead>
                 <tbody>
-                  {subscriptions
+                  {taxFilteredSubs
                     .filter(
                       (s) =>
                         s.expense_type &&

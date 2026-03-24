@@ -5,8 +5,8 @@ Today's date is 2026-03-23.
 
       IMPORTANT: this context may or may not be relevant to your tasks. You should not respond to this context unless it is highly relevant to your task.
 
-Open issues (6 remaining):
-PriorityIssueStatusUrgentK8-302: Rotate hardcoded secretsDOCS SHIPPED -- manual rotation still needed (see SECURITY.md)MediumK8-307: Sort controlsBacklogMediumK8-312: Filter controlsBacklogMediumK8-313: Slide-out detail panelBacklogLowK8-314: Clickable TBD/Review countsBacklogLowK8-319: Enhanced tax export (PDF, year filter)Backlog
+Open issues (5 remaining):
+PriorityIssueStatusUrgentK8-302: Rotate hardcoded secretsDOCS SHIPPED -- manual rotation still needed (see SECURITY.md)MediumK8-307: Sort controlsBacklogMediumK8-312: Filter controlsBacklogMediumK8-313: Slide-out detail panelBacklogLowK8-314: Clickable TBD/Review countsBacklog
 
 Manual steps still needed:
 1. Rotate BETTER_AUTH_SECRET per SECURITY.md
@@ -21,10 +21,10 @@ What's shipped (chronological):
 5. Cancelled sub tracking + Money Saved counter (K8-316) -- auto-cancel on decision change, Money Saved dashboard card, collapsible cancelled section, undo support, CSV export (shipped 2026-03-23)
 6. Calendar integration .ics export (K8-317) -- RFC 5545 compliant, all-day events with VALARM reminders, Export to Calendar buttons on Dashboard + All Subscriptions tabs (shipped 2026-03-23)
 7. Stale review reminders (K8-318) -- decision_changed_at tracking, 30+ day stale detection in cron (weekly per-sub dedup), stale review email/Slack templates, stale section in weekly digest, dashboard stale count + badges, notification preference toggle (shipped 2026-03-23)
+8. Enhanced tax export (K8-319) -- PDF generation (jspdf + jspdf-autotable), year filter dropdown (2025/2026/All Time), year-filtered CSV + PDF export endpoints, client-side year filtering on Tax tab summary cards + detail table (shipped 2026-03-23)
 
 What's next (priority order from roadmap):
-1. K8-319: Enhanced tax export (PDF, year filter)
-3. K8-307: Sort controls
+1. K8-307: Sort controls
 4. K8-312: Filter controls
 5. K8-313: Slide-out detail panel
 6. K8-314: Clickable TBD/Review counts
