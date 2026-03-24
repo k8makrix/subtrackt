@@ -77,6 +77,7 @@ export const notificationPreferencesSchema = z.object({
   email_enabled: z.boolean().optional(),
   slack_enabled: z.boolean().optional(),
   slack_webhook_url: z.string().url().nullable().optional(),
+  stale_review_reminders: z.boolean().optional(),
 });
 
 export type CreateSubscriptionInput = z.infer<typeof createSubscriptionSchema>;

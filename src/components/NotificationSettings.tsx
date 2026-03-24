@@ -15,6 +15,7 @@ type Preferences = {
   email_enabled: boolean;
   slack_enabled: boolean;
   slack_webhook_url: string | null;
+  stale_review_reminders: boolean;
 };
 
 const DAYS = [
@@ -128,6 +129,7 @@ export function NotificationSettings({ onClose }: Props) {
                     { key: "alert_7_days" as const, label: "7 days before renewal" },
                     { key: "alert_3_days" as const, label: "3 days before renewal" },
                     { key: "alert_day_of" as const, label: "Day of renewal" },
+                    { key: "stale_review_reminders" as const, label: "Stale review reminders (30+ days)" },
                   ].map(({ key, label }) => (
                     <label
                       key={key}

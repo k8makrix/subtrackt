@@ -93,6 +93,16 @@ export function Dashboard({
     (s) => s.keep_cancel_review === "review"
   );
 
+  const staleReviewCount = useMemo(() => {
+    return needsReview.filter((s) => {
+      if (!s.decision_changed_at) return false;
+      const daysSince = Math.floor(
+        (Date.now() - new Date(s.decision_changed_at).getTime()) / (1000 * 60 * 60 * 24)
+      );
+      return daysSince >= 30;
+    }).length;
+  }, [needsReview]);
+
   const costsTBD = subscriptions.filter(
     (s) => !s.cost && s.status === "active"
   );
@@ -205,6 +215,11 @@ export function Dashboard({
                 <div className="text-2xl font-bold text-amber-500 mt-1">
                   {needsReview.length}
                 </div>
+                {staleReviewCount > 0 && (
+                  <div className="text-xs text-amber-400/70 mt-1">
+                    {staleReviewCount} stale (30+ days)
+                  </div>
+                )}
                 <button
                   onClick={() => setActiveTab("all")}
                   className="text-xs text-gray-500 mt-1 hover:text-amber-400 transition-colors"
@@ -252,7 +267,12 @@ export function Dashboard({
                         key={s.id}
                         className="flex items-center justify-between bg-gray-900/50 rounded-lg px-4 py-2"
                       >
-                        <span className="font-medium text-sm">{s.service_name}</span>
+                        <span className="font-medium text-sm">
+                          {s.service_name}
+                          {s.keep_cancel_review === "review" && s.decision_changed_at && Math.floor((Date.now() - new Date(s.decision_changed_at).getTime()) / (1000 * 60 * 60 * 24)) >= 30 && (
+                            <span className="ml-2 text-xs text-amber-400/80 bg-amber-400/10 px-1.5 py-0.5 rounded">stale review</span>
+                          )}
+                        </span>
                         <div className="flex items-center gap-4 text-sm">
                           <span className="text-gray-400">
                             {s.cost ? `$${s.cost}` : "TBD"}

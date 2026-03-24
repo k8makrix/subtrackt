@@ -47,6 +47,7 @@ export async function PUT(request: Request) {
       email_enabled = COALESCE(${values.email_enabled ?? null}, notification_preferences.email_enabled),
       slack_enabled = COALESCE(${values.slack_enabled ?? null}, notification_preferences.slack_enabled),
       slack_webhook_url = COALESCE(${values.slack_webhook_url ?? null}, notification_preferences.slack_webhook_url),
+      stale_review_reminders = COALESCE(${values.stale_review_reminders ?? null}, notification_preferences.stale_review_reminders),
       updated_at = NOW()
     RETURNING *
   `;

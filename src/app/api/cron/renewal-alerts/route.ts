@@ -4,6 +4,9 @@ import {
   renewalAlertSubject,
   renewalAlertHtml,
   renewalAlertSlack,
+  staleReviewAlertSubject,
+  staleReviewAlertHtml,
+  staleReviewAlertSlack,
   weeklyDigestSubject,
   weeklyDigestHtml,
   weeklyDigestSlack,
@@ -144,6 +147,86 @@ export async function GET(request: Request) {
       }
     }
 
+    // Stale review reminders — subs in "review" for 30+ days, max once per week per sub
+    if (user.stale_review_reminders && totalSent < MAX_SENDS_PER_RUN) {
+      const staleSubs = await sql`
+        SELECT s.* FROM subscriptions s
+        WHERE s.user_id = ${user.user_id}
+          AND s.keep_cancel_review = 'review'
+          AND s.status = 'active'
+          AND s.decision_changed_at IS NOT NULL
+          AND CURRENT_DATE - s.decision_changed_at::date >= 30
+          AND NOT EXISTS (
+            SELECT 1 FROM notification_log nl
+            WHERE nl.user_id = s.user_id
+              AND nl.subscription_id = s.id
+              AND nl.notification_type = 'stale_review'
+              AND nl.sent_date > CURRENT_DATE - INTERVAL '7 days'
+          )
+      `;
+
+      for (const sub of staleSubs) {
+        if (totalSent >= MAX_SENDS_PER_RUN) break;
+
+        const daysInReview = Math.floor(
+          (Date.now() - new Date(sub.decision_changed_at).getTime()) / (1000 * 60 * 60 * 24)
+        );
+
+        const alertData = {
+          serviceName: sub.service_name,
+          cost: sub.cost,
+          billingCycle: sub.billing_cycle,
+          daysInReview,
+          renewalDate: sub.next_renewal_date,
+          appUrl,
+        };
+
+        let sent = false;
+
+        if (user.email_enabled) {
+          try {
+            await getResend().emails.send({
+              from: FROM_EMAIL,
+              to: user.email,
+              subject: staleReviewAlertSubject(alertData),
+              html: staleReviewAlertHtml(alertData),
+            });
+            sent = true;
+          } catch (err) {
+            results.push(`Stale review email failed for ${sub.service_name}: ${err}`);
+          }
+        }
+
+        if (user.slack_enabled && user.slack_webhook_url) {
+          const slackOk = await sendSlack(
+            user.slack_webhook_url,
+            staleReviewAlertSlack(alertData)
+          );
+          if (slackOk) sent = true;
+          else results.push(`Stale review Slack failed for ${sub.service_name}`);
+        }
+
+        if (sent) {
+          if (user.email_enabled) {
+            await sql`
+              INSERT INTO notification_log (user_id, subscription_id, notification_type, channel, sent_date)
+              VALUES (${user.user_id}, ${sub.id}, 'stale_review', 'email', CURRENT_DATE)
+              ON CONFLICT DO NOTHING
+            `;
+          }
+          if (user.slack_enabled && user.slack_webhook_url) {
+            await sql`
+              INSERT INTO notification_log (user_id, subscription_id, notification_type, channel, sent_date)
+              VALUES (${user.user_id}, ${sub.id}, 'stale_review', 'slack', CURRENT_DATE)
+              ON CONFLICT DO NOTHING
+            `;
+          }
+          totalSent++;
+          results.push(`Sent stale_review for ${sub.service_name} to ${user.email}`);
+        }
+      }
+    }
+
     // Weekly digest — check if today matches the user's preferred day
     if (user.weekly_digest && totalSent < MAX_SENDS_PER_RUN) {
       const today = new Date()
@@ -171,7 +254,28 @@ export async function GET(request: Request) {
             ORDER BY next_renewal_date ASC
           `;
 
-          if (upcoming.length > 0) {
+          // Fetch stale reviews for digest (30+ days in review)
+          const staleForDigest = await sql`
+            SELECT service_name, cost, billing_cycle, decision_changed_at
+            FROM subscriptions
+            WHERE user_id = ${user.user_id}
+              AND keep_cancel_review = 'review'
+              AND status = 'active'
+              AND decision_changed_at IS NOT NULL
+              AND CURRENT_DATE - decision_changed_at::date >= 30
+            ORDER BY decision_changed_at ASC
+          `;
+
+          const staleReviews = staleForDigest.map((s: Record<string, unknown>) => ({
+            serviceName: s.service_name as string,
+            daysInReview: Math.floor(
+              (Date.now() - new Date(s.decision_changed_at as string).getTime()) / (1000 * 60 * 60 * 24)
+            ),
+            cost: s.cost as string | null,
+            billingCycle: s.billing_cycle as string | null,
+          }));
+
+          if (upcoming.length > 0 || staleReviews.length > 0) {
             const reviewCount = upcoming.filter(
               (s: Record<string, unknown>) => s.keep_cancel_review === "review"
             ).length;
@@ -196,6 +300,7 @@ export async function GET(request: Request) {
               subscriptions: digestSubs,
               totalUpcoming,
               reviewCount,
+              staleReviews,
               appUrl,
             };
 

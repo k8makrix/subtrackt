@@ -26,4 +26,5 @@ export type Subscription = {
   last_charge_date: string | null;
   updated_at: string | null;
   canceled_at: string | null;
+  decision_changed_at: string | null;
 };

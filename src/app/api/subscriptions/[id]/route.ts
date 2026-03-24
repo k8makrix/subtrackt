@@ -43,6 +43,12 @@ export async function PATCH(
         WHEN ${values.canceled_at === undefined} THEN canceled_at
         ELSE ${values.canceled_at ?? null}::timestamptz
       END,
+      decision_changed_at = CASE
+        WHEN ${values.keep_cancel_review ?? null} IS NOT NULL
+          AND ${values.keep_cancel_review ?? null} IS DISTINCT FROM keep_cancel_review
+        THEN NOW()
+        ELSE decision_changed_at
+      END,
       updated_at = NOW()
     WHERE id = ${id} AND user_id = ${session.user.id}
     RETURNING *

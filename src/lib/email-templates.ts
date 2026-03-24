@@ -8,6 +8,15 @@ type RenewalAlertData = {
   appUrl: string;
 };
 
+type StaleReviewAlertData = {
+  serviceName: string;
+  cost: string | null;
+  billingCycle: string | null;
+  daysInReview: number;
+  renewalDate: string | null;
+  appUrl: string;
+};
+
 type DigestSubscription = {
   serviceName: string;
   cost: string | null;
@@ -16,10 +25,18 @@ type DigestSubscription = {
   daysUntil: number;
 };
 
+type StaleReviewDigestItem = {
+  serviceName: string;
+  daysInReview: number;
+  cost: string | null;
+  billingCycle: string | null;
+};
+
 type WeeklyDigestData = {
   subscriptions: DigestSubscription[];
   totalUpcoming: number;
   reviewCount: number;
+  staleReviews: StaleReviewDigestItem[];
   appUrl: string;
 };
 
@@ -124,6 +141,14 @@ export function weeklyDigestHtml(data: WeeklyDigestData): string {
       <tbody>${rows}</tbody>
     </table>
   </div>
+  ${data.staleReviews.length > 0 ? `<div class="card" style="border-color: #92400e;">
+    <div class="label">Stale Reviews (30+ days)</div>
+    <div style="color: #fbbf24; font-size: 13px; margin-bottom: 12px;">${data.staleReviews.length} subscription${data.staleReviews.length !== 1 ? "s" : ""} waiting for a decision</div>
+    <table>
+      <thead><tr><th>Service</th><th>Cost</th><th>Days in Review</th></tr></thead>
+      <tbody>${data.staleReviews.map((s) => `<tr><td style="font-weight: 500;">${s.serviceName}</td><td>${formatCost(s.cost, s.billingCycle)}</td><td><span class="highlight">${s.daysInReview}d</span></td></tr>`).join("")}</tbody>
+    </table>
+  </div>` : ""}
   <div style="text-align: center;">
     <a href="${data.appUrl}" class="btn">Open subtrackt</a>
   </div>
@@ -133,6 +158,45 @@ export function weeklyDigestHtml(data: WeeklyDigestData): string {
   </div>
 </div>
 </body></html>`;
+}
+
+// Stale review alert
+export function staleReviewAlertSubject(data: StaleReviewAlertData): string {
+  return `${data.serviceName} has been in review for ${data.daysInReview} days — time to decide?`;
+}
+
+export function staleReviewAlertHtml(data: StaleReviewAlertData): string {
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>${baseStyles}</style></head>
+<body>
+<div class="container">
+  <div class="logo">sub<span>trackt</span></div>
+  <div class="card">
+    <div class="label">Subscription</div>
+    <div class="value" style="font-size: 20px; font-weight: 600;">${data.serviceName}</div>
+    <div class="label">In Review For</div>
+    <div class="value"><span class="highlight">${data.daysInReview} days</span></div>
+    <div class="label">Cost</div>
+    <div class="value">${formatCost(data.cost, data.billingCycle)}</div>
+    ${data.renewalDate ? `<div class="label">Next Renewal</div><div class="value" style="margin-bottom: 0;">${formatDateShort(data.renewalDate)}</div>` : `<div class="value" style="margin-bottom: 0; color: #9ca3af;">No renewal date set</div>`}
+  </div>
+  <div style="text-align: center;">
+    <a href="${data.appUrl}" class="btn">Make a Decision</a>
+  </div>
+  <div class="footer">
+    <p>You're receiving this because you enabled stale review reminders in subtrackt.</p>
+    <p><a href="${data.appUrl}">Manage notification preferences</a></p>
+  </div>
+</div>
+</body></html>`;
+}
+
+export function staleReviewAlertSlack(data: StaleReviewAlertData): string {
+  return [
+    `⏳ *${data.serviceName}* has been in review for ${data.daysInReview} days`,
+    `Cost: ${formatCost(data.cost, data.billingCycle)}${data.renewalDate ? ` | Renews: ${formatDateShort(data.renewalDate)}` : ""}`,
+    `<${data.appUrl}|Make a decision in subtrackt>`,
+  ].join("\n");
 }
 
 // Slack message formatters
@@ -149,12 +213,17 @@ export function weeklyDigestSlack(data: WeeklyDigestData): string {
     (s) => `• *${s.serviceName}* — ${formatCost(s.cost, s.billingCycle)} — ${s.daysUntil}d`
   );
 
+  const staleLines = data.staleReviews.map(
+    (s) => `• *${s.serviceName}* — ${formatCost(s.cost, s.billingCycle)} — ${s.daysInReview}d in review`
+  );
+
   return [
     `*Upcoming Renewals (next 14 days)*`,
     `${data.subscriptions.length} subs — $${data.totalUpcoming.toFixed(2)} total`,
     ...(data.reviewCount > 0 ? [`⚠️ ${data.reviewCount} still marked "review"`] : []),
     "",
     ...lines,
+    ...(staleLines.length > 0 ? ["", `*⏳ Stale Reviews (30+ days)*`, ...staleLines] : []),
     "",
     `<${data.appUrl}|Open subtrackt>`,
   ].join("\n");
