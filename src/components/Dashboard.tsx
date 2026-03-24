@@ -10,6 +10,14 @@ import { NotificationSettings } from "./NotificationSettings";
 import type { Subscription } from "@/lib/types";
 
 type Tab = "dashboard" | "all" | "tax";
+type SortField = "service" | "cost" | "renewal" | "decision";
+type SortDirection = "asc" | "desc";
+type Filters = {
+  decision: string;
+  category: string;
+  billing: string;
+  payment: string;
+};
 
 function daysUntil(dateStr: string | null): number | null {
   if (!dateStr) return null;
@@ -57,6 +65,14 @@ export function Dashboard({
   const [showAddModal, setShowAddModal] = useState(false);
   const [showNotificationSettings, setShowNotificationSettings] = useState(false);
   const [taxYear, setTaxYear] = useState<string>(new Date().getFullYear().toString());
+  const [sortField, setSortField] = useState<SortField>("renewal");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [filters, setFilters] = useState<Filters>({
+    decision: "all",
+    category: "all",
+    billing: "all",
+    payment: "all",
+  });
 
   const activeSubs = subscriptions.filter((s) => s.status === "active");
   const lennyPassSubs = subscriptions.filter((s) => s.status === "lenny-pass");
@@ -109,15 +125,83 @@ export function Dashboard({
   );
 
   const filteredSubs = useMemo(() => {
+    let all = [...activeSubs, ...lennyPassSubs];
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      all = all.filter(
+        (s) =>
+          s.service_name.toLowerCase().includes(q) ||
+          s.category?.toLowerCase().includes(q)
+      );
+    }
+    if (filters.decision !== "all") {
+      all = all.filter((s) => s.keep_cancel_review === filters.decision);
+    }
+    if (filters.category !== "all") {
+      all = all.filter((s) => s.category === filters.category);
+    }
+    if (filters.billing !== "all") {
+      all = all.filter((s) => s.billing_cycle === filters.billing);
+    }
+    if (filters.payment !== "all") {
+      all = all.filter((s) => s.payment_source === filters.payment);
+    }
+    return all;
+  }, [activeSubs, lennyPassSubs, search, filters]);
+
+  const sortedSubs = useMemo(() => {
+    const sorted = [...filteredSubs];
+    sorted.sort((a, b) => {
+      let cmp = 0;
+      switch (sortField) {
+        case "service":
+          cmp = a.service_name.localeCompare(b.service_name);
+          break;
+        case "cost": {
+          const ca = annualize(a.cost, a.billing_cycle);
+          const cb = annualize(b.cost, b.billing_cycle);
+          if (!a.cost && b.cost) return 1;
+          if (a.cost && !b.cost) return -1;
+          cmp = ca - cb;
+          break;
+        }
+        case "renewal": {
+          if (!a.next_renewal_date && !b.next_renewal_date) cmp = 0;
+          else if (!a.next_renewal_date) return 1;
+          else if (!b.next_renewal_date) return -1;
+          else cmp = new Date(a.next_renewal_date).getTime() - new Date(b.next_renewal_date).getTime();
+          break;
+        }
+        case "decision": {
+          const order: Record<string, number> = { keep: 0, review: 1, cancel: 2 };
+          const da = order[a.keep_cancel_review || ""] ?? 3;
+          const db = order[b.keep_cancel_review || ""] ?? 3;
+          cmp = da - db;
+          break;
+        }
+      }
+      return sortDirection === "asc" ? cmp : -cmp;
+    });
+    return sorted;
+  }, [filteredSubs, sortField, sortDirection]);
+
+  const filterOptions = useMemo(() => {
     const all = [...activeSubs, ...lennyPassSubs];
-    if (!search.trim()) return all;
-    const q = search.toLowerCase();
-    return all.filter(
-      (s) =>
-        s.service_name.toLowerCase().includes(q) ||
-        s.category?.toLowerCase().includes(q)
-    );
-  }, [activeSubs, lennyPassSubs, search]);
+    const categories = [...new Set(all.map((s) => s.category).filter(Boolean))].sort() as string[];
+    const payments = [...new Set(all.map((s) => s.payment_source).filter(Boolean))].sort() as string[];
+    return { categories, payments };
+  }, [activeSubs, lennyPassSubs]);
+
+  const activeFilterCount = [filters.decision, filters.category, filters.billing, filters.payment].filter((v) => v !== "all").length;
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
+  };
 
   const bizDeductible = useMemo(() => {
     return subscriptions
@@ -178,7 +262,7 @@ export function Dashboard({
 
   const tabs: { key: Tab; label: string }[] = [
     { key: "dashboard", label: "Dashboard" },
-    { key: "all", label: `All Subscriptions (${activeSubs.length + lennyPassSubs.length})` },
+    { key: "all", label: `All Subscriptions (${activeFilterCount > 0 || search ? `${sortedSubs.length}/` : ""}${activeSubs.length + lennyPassSubs.length})` },
     { key: "tax", label: "Tax & Expenses" },
   ];
 
@@ -391,20 +475,97 @@ export function Dashboard({
               </button>
             </div>
 
+            {/* Filter Bar */}
+            <div className="mb-4 flex items-center gap-2 flex-wrap">
+              <select
+                value={filters.decision}
+                onChange={(e) => setFilters((f) => ({ ...f, decision: e.target.value }))}
+                className="bg-gray-800 text-gray-300 border border-gray-700 rounded-lg px-3 py-1.5 text-sm focus:border-amber-500/50 focus:outline-none"
+              >
+                <option value="all">All Decisions</option>
+                <option value="keep">Keep</option>
+                <option value="review">Review</option>
+                <option value="cancel">Cancel</option>
+              </select>
+              <select
+                value={filters.category}
+                onChange={(e) => setFilters((f) => ({ ...f, category: e.target.value }))}
+                className="bg-gray-800 text-gray-300 border border-gray-700 rounded-lg px-3 py-1.5 text-sm focus:border-amber-500/50 focus:outline-none"
+              >
+                <option value="all">All Categories</option>
+                {filterOptions.categories.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+              <select
+                value={filters.billing}
+                onChange={(e) => setFilters((f) => ({ ...f, billing: e.target.value }))}
+                className="bg-gray-800 text-gray-300 border border-gray-700 rounded-lg px-3 py-1.5 text-sm focus:border-amber-500/50 focus:outline-none"
+              >
+                <option value="all">All Billing</option>
+                <option value="monthly">Monthly</option>
+                <option value="annual">Annual</option>
+                <option value="6-month">6-month</option>
+              </select>
+              <select
+                value={filters.payment}
+                onChange={(e) => setFilters((f) => ({ ...f, payment: e.target.value }))}
+                className="bg-gray-800 text-gray-300 border border-gray-700 rounded-lg px-3 py-1.5 text-sm focus:border-amber-500/50 focus:outline-none"
+              >
+                <option value="all">All Payments</option>
+                {filterOptions.payments.map((p) => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </select>
+              {activeFilterCount > 0 && (
+                <button
+                  onClick={() => setFilters({ decision: "all", category: "all", billing: "all", payment: "all" })}
+                  className="text-xs text-amber-400 hover:text-amber-300 transition-colors ml-1"
+                >
+                  Clear filters ({activeFilterCount})
+                </button>
+              )}
+            </div>
+
             {/* Table */}
             <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-800 text-gray-400">
                     <th className="w-8 px-3 py-3"></th>
-                    <th className="text-left px-4 py-3">Service</th>
-                    <th className="text-left px-4 py-3">Cost</th>
-                    <th className="text-left px-4 py-3">Next Renewal</th>
-                    <th className="text-left px-4 py-3">Decision</th>
+                    {([
+                      { field: "service" as SortField, label: "Service" },
+                      { field: "cost" as SortField, label: "Cost" },
+                      { field: "renewal" as SortField, label: "Next Renewal" },
+                      { field: "decision" as SortField, label: "Decision" },
+                    ]).map(({ field, label }) => (
+                      <th
+                        key={field}
+                        className="text-left px-4 py-3 cursor-pointer select-none hover:text-gray-200 transition-colors"
+                        onClick={() => handleSort(field)}
+                      >
+                        <span className="inline-flex items-center gap-1">
+                          {label}
+                          {sortField === field ? (
+                            <svg className="w-3 h-3 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              {sortDirection === "asc" ? (
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                              ) : (
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              )}
+                            </svg>
+                          ) : (
+                            <svg className="w-3 h-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                            </svg>
+                          )}
+                        </span>
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredSubs.map((s) => (
+                  {sortedSubs.map((s) => (
                     <SubscriptionRow
                       key={s.id}
                       sub={s}
@@ -413,10 +574,10 @@ export function Dashboard({
                       onUpdate={() => router.refresh()}
                     />
                   ))}
-                  {filteredSubs.length === 0 && (
+                  {sortedSubs.length === 0 && (
                     <tr>
                       <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
-                        {search ? `No subscriptions matching "${search}"` : "No subscriptions"}
+                        {search || activeFilterCount > 0 ? "No subscriptions match your filters" : "No subscriptions"}
                       </td>
                     </tr>
                   )}
