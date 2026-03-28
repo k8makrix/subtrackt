@@ -74,6 +74,8 @@
 - Compares streaming services seasonally (cancel one, add another)
 - Rarely thinks about tax deductions for personal subscriptions
 
+**Real-world basis:** Represents the product creator themselves and their spouse, managing a household where both partners sign up for services independently.
+
 **Quote:** "I know we're paying too much for stuff nobody uses, but I don't even know where to start."
 
 ---
@@ -109,7 +111,23 @@
 - Delegates cancellation but doesn't verify it happened
 - Needs shareable reports for partners or board
 
+**Real-world basis:** Represents the product creator in their professional capacity, running a suite of products and tools to get work done.
+
 **Quote:** "Every quarter I find another tool we're paying for that two people use and fifteen have forgotten about."
+
+---
+
+### Adjacent Segments to Monitor
+
+These segments share pain points with the primary personas and could expand the addressable market:
+
+| Segment | Overlap with | Key difference |
+|---------|-------------|----------------|
+| **Content creators** (YouTubers, streamers, podcasters) | Kate | Higher tool churn, more niche SaaS, often mix personal/business on one card |
+| **Agency owners** | Priya | Managing client tool stacks in addition to internal tools, need per-client cost allocation |
+| **Accountants / bookkeepers** | Kate, Priya | Would use Subtrackt *on behalf of* clients, need multi-client views and export workflows |
+
+These are not design targets for MVP but inform market sizing and future expansion paths.
 
 ---
 
