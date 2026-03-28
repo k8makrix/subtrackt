@@ -106,14 +106,14 @@ CRON_SECRET=<random-string>
 ### API Route Pattern
 Every API route follows this structure:
 ```typescript
-export async function POST(request: NextRequest) {
-  const session = await requireAuth(request);        // 401 if no session
-  if (session instanceof NextResponse) return session;
-  const originCheck = validateOrigin(request);        // 403 if CSRF fails
-  if (originCheck) return originCheck;
-  const body = MyZodSchema.parse(await request.json()); // Zod validation
-  const db = getDb();
-  // ... raw SQL query
+export async function POST(request: Request) {
+  const session = await requireAuth(request);           // returns session or null
+  if (!session) return unauthorizedResponse();           // 401
+  if (!validateOrigin(request)) return forbiddenResponse(); // 403 CSRF check
+  const parsed = MyZodSchema.safeParse(await request.json());
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  const sql = getDb();
+  // ... raw SQL query using sql`SELECT ... WHERE user_id = ${session.user.id}`
   return NextResponse.json(result);
 }
 ```
